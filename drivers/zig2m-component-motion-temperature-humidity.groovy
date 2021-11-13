@@ -18,12 +18,13 @@
 
 import groovy.transform.Field
 
-@Field static final List<String> parsableAttributes = ["motion", "temperature", "humidity"]
+@Field static final List<String> parsableAttributes = ["battery", "motion", "temperature", "humidity"]
 @Field static final Integer debugAutoDisableMinutes = 30
 
 metadata {
    definition(name: "Generic Component Motion/Temperature/Humidity Sensor", namespace: "RMoRobert", author: "Robert Morris", component: true) {
       capability "Sensor"
+      capability "Battery"
       capability "MotionSensor"
       capability "TemperatureMeasurement"
       capability "RelativeHumidityMeasurement"

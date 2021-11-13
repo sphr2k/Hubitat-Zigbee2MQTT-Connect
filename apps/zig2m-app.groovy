@@ -33,6 +33,7 @@ import groovy.transform.Field
 
 @Field static final Integer debugAutoDisableSeconds = 1800
 @Field static final String customDriverNamespace = "RMoRobert"
+@Field static final String stockDriverNamespace = "hubitat"
 
 definition (
    name: "Zigbee2MQTT Connect",
@@ -203,32 +204,32 @@ void createNewSelectedDevices() {
 List<String> getBestMatchDriver(List<Map> exposes) {
    if (enableDebug) log.debug "getBestMatchDriver(${exposes})"
    if (!exposes) return []
-   String namespace = "hubitat"
+   String namespace = stockDriverNamespace
    String driverName
-   log.trace "expxposes = "; exposes.each {log.trace it}
    if (exposes.find { it.name == "occupancy"}) {
       if (exposes.find { it.name == "temperature"} && exposes.find { it.name == "humidity"} ) {
          driverName = "Generic Component Motion/Temperature/Humidity Sensor"
-         namespace = "RMoRobert"
+         namespace = customDriverNamespace
       }
       else if (exposes.find { it.name == "temperature"} && exposes.find { it.name == "illuminance_lux"} ) {
          driverName = "Generic Component Motion/Temperature/Lux Sensor"
-         namespace = "RMoRobert"
+         namespace = customDriverNamespace
       }
       else if (exposes.find { it.name == "temperature"} ) {
          driverName = "Generic Component Motion/Temperature Sensor"
-         namespace = "RMoRobert"
+         namespace = customDriverNamespace
       }
       else {
          driverName = "Generic Component Motion Sensor"
       }
-   } 
+   }
+   else if (exposes.find {it.name == "contact" && it.name == "x_axis"}) {
+      driverName = "Generic Component Acceleration/Axis/Contact Sensor"
+      namespace = customDriverNamespace
+   }
    else if (exposes.find {it.name == "contact" }) {
       driverName = "Generic Component Contact Sensor"
    }
-   // TODO: make this more nuanced for color, CT, effects, etc:
-
-
    else if (exposes.features.find { flist -> flist.find { f -> f.name == "color_xy"  || f.name == "color_hs "} &&
                                            flist.find { f-> f.name == "color_temp" } } &&
             exposes.find { it.name == "effect"}) {
@@ -246,7 +247,7 @@ List<String> getBestMatchDriver(List<Map> exposes) {
    }
    else if (exposes.find { it.name == "action" }) {
       driverName = "Zigbee2MQTT Component Button"
-      namespace = "RMoRobert"
+      namespace = customDriverNamespace
    }
    else if (exposes.find { it.name == "state" }) {
       driverName = "Generic Component Switch"
@@ -263,6 +264,7 @@ Map pageManage() {
       cd.deviceNetworkId != "Zig2M/${app.id}" }.collect {
          DeviceWrapper cd -> cd.displayName
    }
+   cdNames.sort()
    dynamicPage(name: "pageManage", uninstall: true, install: true) {
       section("Choose Zigbee2MQTT devices to import") {
          href name: "hrefSelectDevices", title: "Select Zigbee2MQTT devices...",

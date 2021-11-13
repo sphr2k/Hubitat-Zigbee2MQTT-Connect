@@ -1,5 +1,5 @@
 /**
- * ====================  Generic Component Motion/Temperature Driver ==========================
+ * ===============  Generic Component Acceleration/Axis/Contact Driver ===================
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -13,20 +13,20 @@
  * =======================================================================================
  *
  *  Changelog:
- *  2021-10-30 - Initial release
+ *  2021-11-13 - Initial release
  */
 
 import groovy.transform.Field
 
-@Field static final List<String> parsableAttributes = ["battery", "motion", "temperature"]
+@Field static final List<String> parsableAttributes = ["battery", "acceleration", "contact", "threeAxis", "temperature"]
 @Field static final Integer debugAutoDisableMinutes = 30
 
 metadata {
-   definition(name: "Generic Component Motion/Temperature Sensor", namespace: "RMoRobert", author: "Robert Morris", component: true) {
+   definition(name: "Generic Component Acceleration/Axis/Contact Sensor", namespace: "RMoRobert", author: "Robert Morris", component: true) {
       capability "Sensor"
       capability "Battery"
-      capability "MotionSensor"
       capability "TemperatureMeasurement"
+      capability "WaterSensor"
       capability "Refresh"
    }
    preferences {
@@ -53,7 +53,6 @@ void initialize() {
       runIn(debugAutoDisableMinutes*60, "debugOff")
    }
 }
-
 void debugOff() {
    log.warn "Disabling debug logging"
    device.updateSetting("enableDebug", [value:false, type:"bool"])
@@ -65,11 +64,26 @@ void parse(List<Map> description) {
    if (enableDebug) log.debug ("parse($description)")
    description.each {
       if (it.name in parsableAttributes) {
-         if (enableDesc && device.currentValue(it.name) != it.value) {
-            if (it.descriptionText != null) log.info it.descriptionText
-            else log.info "${device.displayName} ${it.name} is ${it.value}"
+         // these may come in one at a time, so piece together with current values if needeed
+         if (it.name == "threeAxis") {
+            Map<String,Number> currentAxes = device.currentValue("threeAxis") ?: [:]
+            Map<String,Number> newAxes = (it.value != null) ? it.value : [:]
+            if (!(newAxes.x)) newAxes.x = currentAxes.x ?: 0
+            if (!(newAxes.y)) newAxes.y = currentAxes.y ?: 0
+            if (!(newAxes.z)) newAxes.z = currentAxes.y ?: 0
+            if (enableDesc && device.currentValue("threeAxis") != newAxes) {
+               if (it.descriptionText != null) log.info it.descriptionText
+               else log.info "${device.displayName} ${it.name} is ${newAxes}"
+               sendEvent(name: "threeAxis", value: newAxes, descriptionText: "${device.displayName} threeAxis is ${newAxes}")
+            }
          }
-         sendEvent(it)
+         else {
+            if (enableDesc && device.currentValue(it.name) != it.value) {
+               if (it.descriptionText != null) log.info it.descriptionText
+               else log.info "${device.displayName} ${it.name} is ${it.value}"
+            }
+            sendEvent(it)
+         }
       }
    }
 }

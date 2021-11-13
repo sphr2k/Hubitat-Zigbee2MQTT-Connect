@@ -257,16 +257,34 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                }
                break
             ///// Sensors
+            case "battery":
+               Integer eventValue = Math.round(value as float)
+               eventList << [name: "battery", value: eventValue] 
+               break
             case "contact":
                String eventValue = value == true ? "closed" : "open"
                eventList << [name: "contact", value: eventValue] 
+               break
+            case "humidity":
+               if (value == null) break
+               Integer eventValue = Math.round(value as Float)
+               eventList << [name: "humidity", value: eventValue, unit: "%"] 
+               break
+            case "illuminance_lux":
+               if (value == null) break
+               Integer eventValue = Math.round(value as Float)
+               eventList << [name: "illuminance", value: eventValue, unit: "lux"] 
+               break
+            case "moving":
+               String eventValue = value == true ? "active" : "inactive"
+               eventList << [name: "acceleration", value: eventValue] 
                break
             case "occupancy":
                String eventValue = value == true ? "active" : "inactive"
                eventList << [name: "motion", value: eventValue] 
                break
             case "temperature":
-            if (value == null) break
+               if (value == null) break
                String origUnit = (devices[device.idAsLong].find { friendly_name == friendlyName }?.definition?.exposes?.find {
                      it.name == "contact"
                   }?.unit?.endsWith("F")) ? "F" : "C"
@@ -282,15 +300,12 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                }
                eventList << [name: "temperature", value: eventValue, unit: "°${location.temperatureScale}"] 
                break
-            case "humidity":
-            if (value == null) break
-               Integer eventValue = Math.round(value as Float)
-               eventList << [name: "humidity", value: eventValue, unit: "%"] 
+            case "water_leak":
+               String eventValue = value == true ? "wet" : "dry"
+               eventList << [name: "water", value: eventValue] 
                break
-            case "illuminance_lux":
-            if (value == null) break
-               Integer eventValue = Math.round(value as Float)
-               eventList << [name: "illuminance", value: eventValue, unit: "lux"] 
+            case { it.endsWith("_axis" && it.length() == 6) }:
+               eventList << [name: "threeAxis", value: [(key.getAt(0).toLowerCase()): value]]
                break
             ///// Buttons
             case "action":
