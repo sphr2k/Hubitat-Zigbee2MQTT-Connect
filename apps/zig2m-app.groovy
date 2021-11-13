@@ -515,3 +515,5 @@ void componentSetSaturation(DeviceWrapper device, Number sat) {
    if (device.currentValue("switch") != "on") payload << [state: "ON"]
    brokerDev.publishForIEEE(ieee, "set", payload)
 }
+
+ 

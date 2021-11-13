@@ -228,21 +228,32 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
             case "color_temp":
             if (value == null) break
                Integer eventValue = Math.round(1000000.0 / (value as Float))
-               eventList << [name: "colorTemperature", value: eventValue, unit: "K"] 
+               eventList << [name: "colorTemperature", value: eventValue, unit: "K"]
+               if (colorMode == "ct") {
+                  eventList << getGenericColorTempName(eventValue)
+                  eventList << ["colorMode": "CT"]
+               }
                break
             case "color":
-               Boolean parsedHS = false
+               Map<String,Integer> parsedHS = [:]
                if (value.hue != null) {
                   Integer eventValue = Math.round((value.hue as Float) / 3.6)
                   eventList << [name: "hue", value: eventValue, unit: "%"]
-                  parsedHS = true
+                  parsedHS['hue'] = eventValue
                }
                if (value.saturation != null) {
                   Integer eventValue = value.saturation
-                  eventList << [name: "saturation", value: eventValue, unit: "%"] 
+                  eventList << [name: "saturation", value: eventValue, unit: "%"]
+                  parsedHS['saturation'] = eventValue 
                }
                if (!parsedHS) {
                   if (enableDebug) log.debug "not parsing color because hue/sat not provided (may be xy-only?)"
+               }
+               else {
+                  if (colorMode != "ct") {
+                     eventList << getGenericColorName(parsedHS.hue, parsedHS.saturation)
+                     eventList << ["colorMode": "RGB"]
+                  }
                }
                break
             ///// Sensors
@@ -371,6 +382,67 @@ void logDevices(Boolean prettyPrint=true) {
    devices[device.idAsLong].find { it.friendly_name == "Sengled Z2M" }.definition.exposes.each {
       log.warn it
    }
+}
+
+// Hubiat-provided color/name mappings
+Map<String,String> getGenericColorName(Number hue, Number saturation=100, Boolean hiRezHue=false) {
+   String colorName
+   hue = hue.toInteger()
+   if (!hiRezHue) hue = (hue * 3.6)
+   log.trace "hue = $hue"
+   switch (hue.toInteger()) {
+      case 0..15: colorName = "Red"
+         break
+      case 16..45: colorName = "Orange"
+         break
+      case 46..75: colorName = "Yellow"
+         break
+      case 76..105: colorName = "Chartreuse"
+         break
+      case 106..135: colorName = "Green"
+         break
+      case 136..165: colorName = "Spring"
+         break
+      case 166..195: colorName = "Cyan"
+         break
+      case 196..225: colorName = "Azure"
+         break
+      case 226..255: colorName = "Blue"
+         break
+      case 256..285: colorName = "Violet"
+         break
+      case 286..315: colorName = "Magenta"
+         break
+      case 316..345: colorName = "Rose"
+         break
+      case 346..360: colorName = "Red"
+         break
+      default: colorName = "undefined" // shouldn't happen, but just in case
+         break
+   }
+   if (saturation < 1) colorName = "White"
+   return [name: "colorName", value: colorName]
+}
+
+// Hubitat-provided ct/name mappings
+Map<String,String> getGenericColorTempName(Number temp) {
+   if (!temp) return
+   String genericName
+   Integer value = temp.toInteger()
+   if (value <= 2000) genericName = "Sodium"
+   else if (value <= 2100) genericName = "Starlight"
+   else if (value < 2400) genericName = "Sunrise"
+   else if (value < 2800) genericName = "Incandescent"
+   else if (value < 3300) genericName = "Soft White"
+   else if (value < 3500) genericName = "Warm White"
+   else if (value < 4150) genericName = "Moonlight"
+   else if (value <= 5000) genericName = "Horizon"
+   else if (value < 5500) genericName = "Daylight"
+   else if (value < 6000) genericName = "Electronic"
+   else if (value <= 6500) genericName = "Skylight"
+   else if (value < 20000) genericName = "Polar"
+   else genericName = "undefined" // shouldn't happen, but just in case
+   return [name: "colorName", value: genericName]
 }
 
 private void doSendEvent(String eventName, eventValue) {
