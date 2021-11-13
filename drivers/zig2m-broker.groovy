@@ -14,12 +14,14 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2021-11-09
+ *  Last modified: 2021-11-12
  *
  *  Changelog:
+ *  v0.2    - (Beta) Improved reconnection; button driver and parsing added; more driver/device matches
  *  v0.1    - (Beta) Initial Public Release
  */ 
 
+import groovy.json.JsonOutput
 import groovy.transform.Field
 import java.util.concurrent.ConcurrentHashMap
 import com.hubitat.app.DeviceWrapper
@@ -85,14 +87,22 @@ void updated() {
    parent.updateSettings(newSettings)
 }
 
-void initialize() {
+void initialize(Boolean forceReconnect=true) {
    log.debug "initialize()"
    if (enableDebug) {
       log.debug "Debug logging will be automatically disabled in ${debugAutoDisableSeconds/60} minutes"
       runIn(debugAutoDisableSeconds, "debugOff")
    }
-   reconnect()
+   if (forceReconnect == true) {
+      doSendEvent("status", "disconnected")
+      pauseExecution(500)
+      reconnect(false)
+   }
+   else {
+      reconnect()
+   }
 }
+
 
 void debugOff() {
    log.warn "Disabling debug logging"
@@ -148,21 +158,23 @@ void reconnect(Boolean notIfAlreadyConnected = true) {
 }
 
 void parse(String message) {
-   if (enableDebug) log.debug "parse($message); parsed = ${interfaces.mqtt.parseMessage(message)}"
+   if (enableDebug) log.debug "parse(): ${interfaces.mqtt.parseMessage(message)}"
+   // Use if need to see raw data instead:
+   //if (enableDebug) log.debug "parse(): raw message = $message"
    Map<String,String> parsedMsg = interfaces.mqtt.parseMessage(message)
    switch (parsedMsg?.topic) {
-      // When device list, friendly name, etc updated:
+      // Should happen when subscribing or when device added, friendly name re-named, etc.:
       case "${settings.topic}/bridge/devices":
          devices[device.idAsLong] = parseJson(parsedMsg.payload)
          //log.trace "devices = ${devices[device.idAsLong]}"
          break
-      // General Bridge info, some of which we may care about but are ignoring for now:
+      // General Bridge info, some of which we may care about but are ignoring for now...but helps filter remaining to just devices
       case { it.startsWith("${settings.topic}/bridge/") }:
          if (enableDebug) log.debug "ignoring bridge topic ${parsedMsg.topic}, payload ${parsedMsg.payload}"
          break
-      // Appears to handle buttons? Verify with more devices...
-      case { it.startsWith("${settings.topic}/") && (it.tokenize('/')[-1] == "click") }:
-         log.trace "is BUTTON --> ${parsedMsg.topic})"
+      // Legacy button, ignore? (use new)
+      case { it.startsWith("${settings.topic}/") && (it.tokenize('/')[-1] == "click") && it.count('/') > 1 }:
+         if (enableDebug) log.debug "ignoring /click (legacy button; use {'action': ...} instead)"
          break
       // Not sure if this ever gets *recevied* or just sent, but just in case...
       case { it.startsWith("${settings.topic}/") && (it.tokenize('/')[-1] == "get") }:
@@ -177,7 +189,7 @@ void parse(String message) {
          if (enableDebug) log.debug "ignoring /availability ${parsedMsg.topic}, payload ${parsedMsg.payload}"
          break
       // Anything left *should* be a friendly name (device) at this point, so attempt parsing...
-      // Note: device names can have slashes, so commented-out case won't work!
+      // Note: device names can have slashes, so commented-out 'case' won't work!
       case { it.startsWith("${settings.topic}/") }:
       //case { it.startsWith("${settings.topic}/") && (it.indexOf('/', "${settings.topic}/".size()) < 0) }:
          //log.trace "is device --> ${parsedMsg.topic} ---> PAYLOAD: ${parsedMsg.payload}"
@@ -192,8 +204,6 @@ void parse(String message) {
       default:
          if (enableDebug) log.debug "ignore: $parsedMsg"
    }
-   //log.trace parsedMsg
-   //log.warn message
 }
 
 List<Map> parsePayloadToEvents(String friendlyName, String payload) {
@@ -211,12 +221,12 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                break
             case "brightness":
                if (value == null) break
-               Integer eventValue = Math.round((it.value as Float) / 255 * 100)
+               Integer eventValue = Math.round((value as Float) / 255 * 100)
                eventList << [name: "level", value: eventValue, unit: "%"] 
                break
             case "color_temp":
             if (value == null) break
-               Integer eventValue = Math.round(1000000.0 / (it.value as Float))
+               Integer eventValue = Math.round(1000000.0 / (value as Float))
                eventList << [name: "colorTemperature", value: eventValue, unit: "K"] 
                break
             // TODO: color, color_hs, color_xy?
@@ -231,7 +241,7 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                break
             case "temperature":
             if (value == null) break
-               String origUnit = (devices[device.idAsLong].find { it.friendly_name == friendlyName }?.definition?.exposes?.find {
+               String origUnit = (devices[device.idAsLong].find { friendly_name == friendlyName }?.definition?.exposes?.find {
                      it.name == "contact"
                   }?.unit?.endsWith("F")) ? "F" : "C"
                BigDecimal eventValue
@@ -256,6 +266,11 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                Integer eventValue = Math.round(value as Float)
                eventList << [name: "illuminance", value: eventValue, unit: "lux"] 
                break
+            ///// Buttons
+            case "action":
+               // a bit different from the rest; gets converted to Hubitat-friendly events in custom driver:
+               eventList << [name: "action", value: value]
+               break
             default:
                if (enableDebug) log.debug "ignoring $key = $value"
          }
@@ -271,6 +286,7 @@ void mqttClientStatus(String message) {
    if (enableDebug) log.debug "mqttClientStatus($message)"
    if ((message.startsWith("Status: Connection succeeded"))) {
       doSendEvent("status", "connected")
+      state.connectionRetryTime = 5
       unschedule("reconnect")
       pauseExecution(250)
       subscribeToTopic()
@@ -302,20 +318,38 @@ void subscribeToTopic(String toTopic = "${settings.topic}/#") {
    interfaces.mqtt.subscribe(toTopic)
 }
 
-void publish(String topic, String payload="", Integer qos = 0, Boolean retained = false) {
+// Note: prepends base topic to 'topic' parameter
+void publish(String topic, String payload="", Integer qos=0, Boolean retained=false) {
    if (enableDebug) log.debug "publish(topic = $topic, payload = $payload, qos = $qos, retained = $retained)"
    interfaces.mqtt.publish("${settings.topic}/${topic}", payload, qos, retained)
 }
 
+// Finds device IEEE and prepends base topic and friendly name to 'topic' parameter
+void publishForIEEE(String ieee, String topic, Map jsonPayload="", Integer qos=0, Boolean retained=false) {
+   if (enableDebug) log.debug "publishForIEEE(ieee = $ieee, topic = $topic, jsonPayload = $jsonPayload, qos = $qos, retained = $retained)"
+   String friendlyName = devices[device.idAsLong].find { it.ieee_address == ieee }?.friendly_name
+   if (friendlyName != null) {
+      String json = JsonOutput.toJson(jsonPayload)
+      if (enableDebug) log.debug "publishing: topic = ${settings.topic}/${friendlyName}/${topic}, payload = ${json}"
+      interfaces.mqtt.publish("${settings.topic}/${friendlyName}/${topic}", json, qos, retained)
+   }
+   else {
+      if (enableDebug) log.debug "not publishing; no device found for IEEE $ieee"
+   }
+}
 
-// Returns devices in "raw" Z2M format (except parsed into List)
-List getDevices() {
+// Returns devices in "raw" Z2M format (except parsed into List); used by parent app
+List getDeviceList() {
    return devices[device.idAsLong] ?: []
 }
 
 void logDevices(Boolean prettyPrint=true) {
    if (!prettyPrint) log.trace devices[device.idAsLong]
    else log.trace groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(devices[device.idAsLong]))
+
+   devices[device.idAsLong].find { it.friendly_name == "Sengled Z2M" }.definition.exposes.each {
+      log.warn it
+   }
 }
 
 private void doSendEvent(String eventName, eventValue) {

@@ -14,17 +14,30 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2021-10-29
+ *  Last modified: 2021-11-12
  *
  *  Changelog:
- *  v0.9    - (Beta) Initial Public Release
+ *  v0.1    - (Beta) Initial Public Release
  */ 
+
+import groovy.transform.Field
+
+@Field static final Map<String,Map<String,Map<String,Map<String,Integer>>>> buttonEventMap = [
+   "AduroSmart": [
+      "81825": [
+         "on": [pushed: 1],
+         "off": [pushed: 4],
+         "up": [pushed: 2],
+         "down": [pushed: 3]
+      ]
+   ]
+]
 
 
 metadata {
-   definition (name: "Zigbee2MQTT Button", namespace: "RMoRobert", author: "Robert Morris",
+   definition (name: "Zigbee2MQTT Component Button", namespace: "RMoRobert", author: "Robert Morris",
                importUrl: "https://raw.githubusercontent.com/RMoRobert/HASSConnect/main/drivers/zig2m-button.groovy") {
-      capability "Actuator"
+      capability "Sensor"
       capability "PushableButton"
       capability "HoldableButton"
       capability "ReleasableButton"
@@ -68,12 +81,25 @@ void setNumberOfButtons(Number number) {
 }
 
 void parse(description) {
-   log.warn "not implemented: parse($description)"
+   log.warn "not implemented: parse(Object $description)"
 }
 
-void buttonParse(String eventType, Map data) {
-   if (enableDebug) log.debug "buttonParse($eventType, $data)"
-   log.warn "TODO"
+void parse(List<Map> actionData) {
+   if (enableDebug) log.debug "parse(List $actionData)"
+   actionData.each { String name, evt ->
+      if (name == "action") {
+         Map<String,Integer> btnEvt = buttonEventMap.get(getDeviceData("vendor"))?.get(getDeviceData("model"))?.get(evt)
+         if (btnEvt != null) {
+           doSendButtonEvent(btnEvent.keyset()[0], btnEvent[btnEvent.keyset()[0]])
+         }
+         else {
+            log.trace "unhandled button event: $actionData"
+         }
+      }
+      else {
+         if (enableDebug) log.warn "ignoring unknown button event: $actionData"
+      }
+   }
 }
 
 void push(Integer buttonNumber) {
@@ -83,8 +109,21 @@ void push(Integer buttonNumber) {
 void hold(Integer buttonNumber) {
    doSendEvent("held", buttonNumber)
 }
+
 void release(Integer buttonNumber) {
    doSendEvent("released", buttonNumber)
+}
+
+void setVendorAndModel(String vendor, String model) {
+   device.updateDataValue("vendor", vendor)
+   device.updateDataValue("model", model)
+}
+
+private void doSendButtonEvent(String eventName, Integer eventValue, Boolean forceStateChange = true) {
+   //if (enableDebug) log.debug ("Creating event for $eventName...")
+   String descriptionText = "${device.displayName} button ${eventValue} is ${eventName}"
+   if (settings.enableDesc) log.info descriptionText
+   sendEvent(name: eventName, value: eventValue, descriptionText: descriptionText, isStateChange: forceStateChange)
 }
 
 private void doSendEvent(String eventName, eventValue) {

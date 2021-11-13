@@ -171,7 +171,7 @@ void createNewSelectedDevices() {
    // Add new devices if any were selected
    DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
    if (brokerDev != null) {
-      List zigDevs = brokerDev.getDevices()
+      List zigDevs = brokerDev.getDeviceList()
       settings.z2mDevSelections?.each { String ieee ->
          if (enableDebug) log.debug "Creating new device for IEEE ${ieee})"
          String devDNI = "Zig2M/${app.id}/${ieee}"
@@ -204,6 +204,7 @@ List<String> getBestMatchDriver(List<Map> exposes) {
    if (!exposes) return []
    String namespace = "hubitat"
    String driverName
+   log.trace "expxposes = "; exposes.each {log.trace it}
    if (exposes.find { it.name == "occupancy"}) {
       if (exposes.find { it.name == "temperature"} && exposes.find { it.name == "humidity"} ) {
          driverName = "Generic Component Motion/Temperature/Humidity Sensor"
@@ -224,14 +225,30 @@ List<String> getBestMatchDriver(List<Map> exposes) {
    else if (exposes.find {it.name == "contact" }) {
       driverName = "Generic Component Contact Sensor"
    }
-   else if (exposes.find { it.name == "light" }) {
-      log.trace "light ----> $exposes"
-   } 
-   else if (exposes.find { it.name == "switch" }) {
-      driverName = "Generic Component Switch"
-   } 
-   else if (exposes.find { it.name == "xxxxNEWxxx" }) {
+   // TODO: make this more nuanced for color, CT, effects, etc:
 
+
+   else if (exposes.features.find { flist -> flist.find { f -> f.name == "color_xy"  || f.name == "color_hs "} &&
+                                           flist.find { f-> f.name == "color_temp" } } &&
+            exposes.find { it.name == "effect"}) {
+      driverName = "Generic Component RGBW Light Effects"
+   }   
+   else if (exposes.features.find { flist -> flist.find { f -> f.name == "color_xy"  || f.name == "color_hs "} &&
+                                           flist.find { f-> f.name == "color_temp" } }) {
+      driverName = "Generic Component RGBW"
+   }
+   else if (exposes.features.find { flist -> flist.find { f -> f.name == "color_xy"  || f.name == "color_hs " } } ) {
+      driverName = "Generic Component RGB"
+   }
+   else if (exposes.features.find { flist -> flist.find { f -> f.name == "color_temp"  } } ) {
+      driverName = "Generic Component CT"
+   }
+   else if (exposes.find { it.name == "action" }) {
+      driverName = "Zigbee2MQTT Component Button"
+      namespace = "RMoRobert"
+   }
+   else if (exposes.find { it.name == "state" }) {
+      driverName = "Generic Component Switch"
    }
    else {
       log.trace "unable to find driver for $exposes"
@@ -267,7 +284,7 @@ Map pageSelectDevices(params) {
    Map unclaimedDevs = [:] // format (of Map) = [ieee: [friendly_name: 'the friendly name', exposes: [...]]]
    List<DeviceWrapper> claimedDevs = [] // format = List of DeviceWrapper objects
    if (brokerDev != null) {
-      allZig2MDevs = brokerDev.getDevices()
+      allZig2MDevs = brokerDev.getDeviceList()
       allZig2MDevs.each {
          if (it.type?.toLowerCase() != "coordinator") {
             DeviceWrapper cd = getChildDevice("Zig2M/${app.id}/${it.ieee_address}")
@@ -357,7 +374,7 @@ void createNewSelectedSwitchDevices() {
 void updateSettings(List<Map<String,Map>> newSettings) {
    newSettings.each { Map newSetting ->
       newSetting.each { String settingName, Map settingValue ->
-         device.updateSetting(settingName, settingValue)
+         app.updateSetting(settingName, settingValue)
       }
    }
 }
@@ -381,7 +398,6 @@ Long getTheAppId() {
    return app.id
 }
 
-
 void appButtonHandler(String btn) {
    switch(btn) {
       case "btnSaveHub":
@@ -397,4 +413,24 @@ void appButtonHandler(String btn) {
 
 private void logDebug(String str) {
    if (settings.enableDebug != false) log.debug(str)
+}
+
+////////////////////////////////////
+// Component Methods
+////////////////////////////////////
+
+void componentOn(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentOn(${device.displayName}"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [state: "ON"]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentOff(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentOn(${device.displayName}"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [state: "OFF"]
+   brokerDev.publishForIEEE(ieee, "set", payload)
 }
