@@ -212,6 +212,7 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
    if (payload.startsWith("{") || payload.trim().startsWith("{")) {
       Map payloadMap = parseJson(payload)
       log.warn payloadMap
+      String colorMode = payloadMap.color_mode
       payloadMap.each { String key, value ->
          switch (key) {
             ///// Actuators
@@ -229,7 +230,21 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                Integer eventValue = Math.round(1000000.0 / (value as Float))
                eventList << [name: "colorTemperature", value: eventValue, unit: "K"] 
                break
-            // TODO: color, color_hs, color_xy?
+            case "color":
+               Boolean parsedHS = false
+               if (value.hue != null) {
+                  Integer eventValue = Math.round((value.hue as Float) / 3.6)
+                  eventList << [name: "hue", value: eventValue, unit: "%"]
+                  parsedHS = true
+               }
+               if (value.saturation != null) {
+                  Integer eventValue = value.saturation
+                  eventList << [name: "saturation", value: eventValue, unit: "%"] 
+               }
+               if (!parsedHS) {
+                  if (enableDebug) log.debug "not parsing color because hue/sat not provided (may be xy-only?)"
+               }
+               break
             ///// Sensors
             case "contact":
                String eventValue = value == true ? "closed" : "open"
@@ -279,6 +294,12 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
    else {
       if (enableDebug) log.debug "not parsing payload to events because probably not JSON: $payload"
    }
+   eventList.each {
+      if (it.descriptionText == null) {
+         it.descriptionText = "${friendlyName} ${it.name} is ${it.value}"
+      }
+   }
+   if (enableDebug) log.debug "eventList = $eventList"
    return eventList
 }
 

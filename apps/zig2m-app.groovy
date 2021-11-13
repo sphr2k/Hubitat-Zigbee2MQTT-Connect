@@ -28,6 +28,7 @@
  */ 
 
 import com.hubitat.app.DeviceWrapper
+import hubitat.helper.ColorUtils
 import groovy.transform.Field
 
 @Field static final Integer debugAutoDisableSeconds = 1800
@@ -420,7 +421,7 @@ private void logDebug(String str) {
 ////////////////////////////////////
 
 void componentOn(DeviceWrapper device) {
-   if (enableDebug) log.debug "componentOn(${device.displayName}"
+   if (enableDebug) log.debug "componentOn(${device.displayName})"
    DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
    String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
    Map<String,String> payload = [state: "ON"]
@@ -428,9 +429,89 @@ void componentOn(DeviceWrapper device) {
 }
 
 void componentOff(DeviceWrapper device) {
-   if (enableDebug) log.debug "componentOn(${device.displayName}"
+   if (enableDebug) log.debug "componentOn(${device.displayName})"
    DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
    String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
    Map<String,String> payload = [state: "OFF"]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetLevel(DeviceWrapper device, Number level, Number transitionTime) {
+   if (enableDebug) log.debug "componentSetLevel(${device.displayName}, $level, $transitionTime)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Number> payload = [brightness: Math.round((level as Float) * 2.55)]
+   if (transitionTime != null) payload << [transition: transitionTime]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentStartLevelChange(DeviceWrapper device, String direction) {
+   if (enableDebug) log.debug "componentStartLevelChange(${device.displayName}, $direction)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Integer mvRate = (direction.toLowerCase() == "up" ? 85 : -85)
+   Map<String,Number> payload = [brightness_move: mvRate]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentStopLevelChange(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentStopLevelChange(${device.displayName})"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Number> payload = [brightness_move: 0]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetColorTemperature(DeviceWrapper device, Number colorTemperature, Number level, Number transitionTime) {
+   if (enableDebug) log.debug "componentSetColorTemperature(${device.displayName}, $colorTemperature, $level, $transitionTime)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Number> payload = [color_temp: Math.round(1000000.0/colorTemperature)]
+   if (level != null) payload << [brightness: Math.round((level as Float) * 2.55)]
+   if (transitionTime != null) payload << [transition: transitionTime]
+   if (device.currentValue("switch") != "on") payload << [state: "ON"]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+// Uses RGB (most widely accepted?)
+void componentSetColor(DeviceWrapper device, Map<String,Number> colorMap) {
+   if (enableDebug) log.debug "componentSetColor(${device.displayName}, $colorMap)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   List rgb = hubitat.helper.ColorUtils.hsvToRGB([colorMap.hue, colorMap.saturation, colorMap.level ?: device.currentValue('level')])
+   Map<String,Map<String,String>> payload = [color: [rgb: rgb.join(',')]]
+   if (colorMap.rate != null) payload << [transition: colorMap.rate]
+   if (device.currentValue("switch") != "on") payload << [state: "ON"]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+// Uses HS (doesn't work for all?)
+void componentSetColorHS(DeviceWrapper device, Map<String,Number> colorMap) {
+   if (enableDebug) log.debug "componentSetColor(${device.displayName}, $colorMap)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Map<String,String>> payload = [color: [h: Math.round((colorMap.hue as float) / 3.60), s: colorMap.saturation, v: colorMap.level ?: device.currentValue('level')]]
+   if (colorMap.rate != null) payload << [transition: colorMap.rate]
+   if (device.currentValue("switch") != "on") payload << [state: "ON"]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetHue(DeviceWrapper device, Number hue) {
+   if (enableDebug) log.debug "componentSetHue(${device.displayName}, $hue)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   List rgb = hubitat.helper.ColorUtils.hsvToRGB([hue, device.currentValue('saturation'), device.currentValue('level')])
+   Map<String,Map<String,String>> payload = [color: [rgb: rgb.join(',')]]
+   if (device.currentValue("switch") != "on") payload << [state: "ON"]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetSaturation(DeviceWrapper device, Number sat) {
+   if (enableDebug) log.debug "componentSetSaturation(${device.displayName}, $sat)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   List rgb = hubitat.helper.ColorUtils.hsvToRGB([device.currentValue('hue'), sat, device.currentValue('level')])
+   Map<String,Map<String,String>> payload = [color: [rgb: rgb.join(',')]]
+   if (device.currentValue("switch") != "on") payload << [state: "ON"]
    brokerDev.publishForIEEE(ieee, "set", payload)
 }
