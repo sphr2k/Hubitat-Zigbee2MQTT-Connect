@@ -21,10 +21,16 @@
  */ 
 
 import groovy.transform.Field
+import java.util.concurrent.ConcurrentHashMap
 
+// used for some "release" events (check last push/hold)
+@Field static final ConcurrentHashMap<Long,Integer> lastButtonNumber = [:]
+
+
+// [manufacturer: [model_id: ... ]]
 @Field static final Map<String,Map<String,Map<String,Map<String,Integer>>>> buttonEventMap = [
-   "AduroSmart": [
-      "81825": [
+   "ADUROLIGHT": [
+      "Adurolight_NCC": [
          "on": [pushed: 1],
          "off": [pushed: 4],
          "up": [pushed: 2],
@@ -43,6 +49,8 @@ metadata {
       capability "ReleasableButton"
 
       command "setNumberOfButtons", ["NUMBER"]
+      // Should not be needed during normal use:
+      //command "setVendorAndModel". ["STRING", "STRING"]
    }
    
    preferences() {
@@ -86,19 +94,19 @@ void parse(description) {
 
 void parse(List<Map> actionData) {
    if (enableDebug) log.debug "parse(List $actionData)"
-   actionData.each { String name, evt ->
-      if (name == "action") {
-         Map<String,Integer> btnEvt = buttonEventMap.get(getDeviceData("vendor"))?.get(getDeviceData("model"))?.get(evt)
-         if (btnEvt != null) {
-           doSendButtonEvent(btnEvent.keyset()[0], btnEvent[btnEvent.keyset()[0]])
-         }
-         else {
-            log.trace "unhandled button event: $actionData"
-         }
+   Map rawBtnAction = actionData.find { it.name == "action" }
+   if (!rawBtnAction.value) return
+   if (rawBtnAction) {
+      Map<String,Integer> btnEvt = buttonEventMap.get(getDataValue("manufacturer"))?.get(getDataValue("model_id"))?.get(rawBtnAction.value)
+      if (!btnEvt) {
+         "no known button events; skipping"
       }
       else {
-         if (enableDebug) log.warn "ignoring unknown button event: $actionData"
+         doSendButtonEvent(btnEvt.keySet()[0], btnEvt[btnEvt.keySet()[0]])
       }
+   }
+   else {
+         if (enableDebug) log.warn "ignoring unknown button event: $actionData"
    }
 }
 

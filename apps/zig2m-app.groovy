@@ -186,7 +186,16 @@ void createNewSelectedDevices() {
             if (z2mDev != null) {
                if (enableDebug) log.debug "Creating device for IEEE = $ieee, name = ${z2mDev.friendly_name}"
                def (String driverName, String namespace) = getBestMatchDriver(z2mDev.definition.exposes)
-               addChildDevice(namespace, driverName, devDNI, [name: z2mDev.friendly_name])
+               try {
+                  DeviceWrapper d = addChildDevice(namespace, driverName, devDNI, [name: z2mDev.friendly_name])
+                  if (d != null) {
+                     if (z2mDev.manufacturer) d.updateDataValue("manufacturer", z2mDev.manufacturer)
+                     if (z2mDev.model_id) d.updateDataValue("model_id", z2mDev.model_id)
+                  }
+               }
+               catch (Exception ex) {
+                  log.error "Unable to create device for  IEEE = $ieee, name = ${z2mDev.friendly_name}: $ex"
+               }
             }
             else {
                log.warn "Unable to find device on Zigbee2MQTT for IEEE $ieee"

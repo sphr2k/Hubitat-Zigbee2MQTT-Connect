@@ -172,9 +172,13 @@ void parse(String message) {
       case { it.startsWith("${settings.topic}/bridge/") }:
          if (enableDebug) log.debug "ignoring bridge topic ${parsedMsg.topic}, payload ${parsedMsg.payload}"
          break
-      // Legacy button, ignore? (use new)
+      // Legacy button, ignore (use new)
       case { it.startsWith("${settings.topic}/") && (it.tokenize('/')[-1] == "click") && it.count('/') > 1 }:
          if (enableDebug) log.debug "ignoring /click (legacy button; use {'action': ...} instead)"
+         break
+      // Some "new" buttons seem to also do this instead of just the {"action": ...} payload, so ignore...
+      case { it.startsWith("${settings.topic}/") && (it.tokenize('/')[-1] == "action") && it.count('/') > 1 }:
+         if (enableDebug) log.debug "ignoring /action (will use payload {'action': ...} instead)"
          break
       // Not sure if this ever gets *recevied* or just sent, but just in case...
       case { it.startsWith("${settings.topic}/") && (it.tokenize('/')[-1] == "get") }:
@@ -234,6 +238,7 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                   eventList << ["colorMode": "CT"]
                }
                break
+            // TODO: light effects
             case "color":
                Map<String,Integer> parsedHS = [:]
                if (value.hue != null) {
@@ -304,7 +309,7 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                String eventValue = value == true ? "wet" : "dry"
                eventList << [name: "water", value: eventValue] 
                break
-            case { it.endsWith("_axis" && it.length() == 6) }:
+            case { it.endsWith("_axis") && it.length() == 6 }:
                eventList << [name: "threeAxis", value: [(key.getAt(0).toLowerCase()): value]]
                break
             ///// Buttons
@@ -393,10 +398,6 @@ List getDeviceList() {
 void logDevices(Boolean prettyPrint=true) {
    if (!prettyPrint) log.trace devices[device.idAsLong]
    else log.trace groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(devices[device.idAsLong]))
-
-   devices[device.idAsLong].find { it.friendly_name == "Sengled Z2M" }.definition.exposes.each {
-      log.warn it
-   }
 }
 
 // Hubiat-provided color/name mappings
