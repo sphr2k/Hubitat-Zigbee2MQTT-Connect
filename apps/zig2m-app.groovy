@@ -189,8 +189,8 @@ void createNewSelectedDevices() {
                try {
                   DeviceWrapper d = addChildDevice(namespace, driverName, devDNI, [name: z2mDev.friendly_name])
                   if (d != null) {
-                     if (z2mDev.manufacturer) d.updateDataValue("manufacturer", z2mDev.manufacturer)
-                     if (z2mDev.model_id) d.updateDataValue("model_id", z2mDev.model_id)
+                     if (z2mDev.definition?.vendor) d.updateDataValue("vendor", z2mDev.definition.vendor)
+                     if (z2mDev.definition?.model) d.updateDataValue("model", z2mDev.definition.model)
                   }
                }
                catch (Exception ex) {

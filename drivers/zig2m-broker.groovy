@@ -14,9 +14,12 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2021-11-12
+ *  Last modified: 2021-11-16
  *
  *  Changelog:
+ *  v0.4b   - (Beta) Added connection watchdog to broker (better reconnection after code updates, etc.)
+ *  v0.4    - (Beta) Improved reconnection after code update, etc.
+ *  v0.3    - (Beta) Added parsing to button events (most work done in button driver); improved driver/device matches
  *  v0.2    - (Beta) Improved reconnection; button driver and parsing added; more driver/device matches
  *  v0.1    - (Beta) Initial Public Release
  */ 
@@ -26,7 +29,12 @@ import groovy.transform.Field
 import java.util.concurrent.ConcurrentHashMap
 import com.hubitat.app.DeviceWrapper
 
+// Automatically disable debug logging after (default=1800)...
 @Field static final Integer debugAutoDisableSeconds = 1800
+// Updating code disconnects MQTT without getting disconenction message; this is one way to handle that:
+@Field static final ConcurrentHashMap<Long,Boolean> hasInitalized = [:]
+@Field static final Boolean enableConnectionWatchdog = true
+// List when received from Z2M:
 @Field static final ConcurrentHashMap<Long,List> devices = [:]
 
 metadata {
@@ -95,11 +103,17 @@ void initialize(Boolean forceReconnect=true) {
    }
    if (forceReconnect == true) {
       doSendEvent("status", "disconnected")
-      pauseExecution(500)
+      pauseExecution(750)
       reconnect(false)
    }
    else {
       reconnect()
+   }
+   if (enableConnectionWatchdog == true) {
+      runEvery1Minute("connectionWatchdog")
+   }
+   else {
+      unschedule("connectionWatchdog")
    }
 }
 
@@ -124,12 +138,12 @@ void connect() {
    if (interfaces.mqtt.isConnected()) {
       if (enableDebug) log.debug "Is connected; disconnecting first"
       interfaces.mqtt.disconnect()
-      runIn(2, "subscribeToTopic")
    }
    unschedule("reconnect")
    if (enableDebug) log.debug "connecting now..."
    interfaces.mqtt.connect(getConnectionUri(), settings.clientId, settings.username, settings.password)
    pauseExecution(1000)
+   runIn(4, "subscribeToTopic")
 }
 
 void updateSettings(List<Map<String,Map>> newSettings) {
@@ -154,6 +168,16 @@ void reconnect(Boolean notIfAlreadyConnected = true) {
    }
    else {
       connect()
+   }
+}
+
+// Can be run periodically to check if "initialized," i.e., if code was updated and MQTT was
+// disconnected without an event to let the driver know
+// Long-term: consider adding MQTT and/or Z2M health check
+void connectionWatchdog() {
+   if (hasInitalized[device.idAsLong] != true) {
+      initialize()
+      hasInitalized[device.idAsLong] = true
    }
 }
 
