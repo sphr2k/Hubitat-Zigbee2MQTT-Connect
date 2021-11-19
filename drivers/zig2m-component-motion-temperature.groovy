@@ -35,46 +35,5 @@ metadata {
    }
 }
 
-void installed() {
-   log.debug "installed()"
-   device.updateSetting("enableDesc", [type:"bool",value:true])
-   refresh()
-}
-
-void updated() {
-   log.debug "updated()"
-   log.warn "description logging is: ${enableDesc == true}"
-}
-
-void initialize() {
-   log.debug "initialize()"
-   if (enableDebug) {
-      log.debug "Debug logging will be automatically disabled in ${debugAutoDisableMinutes} minutes"
-      runIn(debugAutoDisableMinutes*60, "debugOff")
-   }
-}
-
-void debugOff() {
-   log.warn "Disabling debug logging"
-   device.updateSetting("enableDebug", [value:false, type:"bool"])
-}
-
-void parse(String description) { log.warn "parse(String description) not implemented" }
-
-void parse(List<Map> description) {
-   if (enableDebug) log.debug ("parse($description)")
-   description.each {
-      if (it.name in parsableAttributes) {
-         if (enableDesc && device.currentValue(it.name) != it.value) {
-            if (it.descriptionText != null) log.info it.descriptionText
-            else log.info "${device.displayName} ${it.name} is ${it.value}"
-         }
-         sendEvent(it)
-      }
-   }
-}
-
-void refresh() {
-   if (enableDebug) log.debug "refresh()"
-   parent?.componentRefresh(this.device)
-}
+#include RMoRobert.zigbee2MQTTComponentDriverLibrary_Common
+#include RMoRobert.zigbee2MQTTComponentDriverLibrary_Parse

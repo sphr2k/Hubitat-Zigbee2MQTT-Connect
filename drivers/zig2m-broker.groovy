@@ -14,7 +14,7 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2021-11-16
+ *  Last modified: 2021-11-18
  *
  *  Changelog:
  *  v0.4b   - (Beta) Added connection watchdog to broker (better reconnection after code updates, etc.)
@@ -86,12 +86,12 @@ void updated() {
    // TODO: See if this works or is needed:
    List<Map<String,Map>> newSettings = []
    newSettings << ["ipAddress": [value: settings.ipAddress, type: "string"]]
-   newSettings << ["port": [value: settings.ipAddress, type: "number"]]
-   newSettings << ["topic": [value: settings.ipAddress, type: "string"]]
-   newSettings << ["clientId": [value: settings.ipAddress, type: "string"]]
-   newSettings << ["useTLS": [value: settings.ipAddress, type: "bool"]]
-   newSettings << ["username": [value: settings.ipAddress, type: "string"]]
-   newSettings << ["password": [value: settings.ipAddress, type: "password"]]
+   newSettings << ["port": [value: settings.port, type: "number"]]
+   newSettings << ["topic": [value: settings.topic, type: "string"]]
+   newSettings << ["clientId": [value: settings.clientId, type: "string"]]
+   newSettings << ["": [value: settings.useTLS, type: "bool"]]
+   newSettings << ["username": [value: settings.username, type: "string"]]
+   newSettings << ["password": [value: settings.password, type: "password"]]
    parent.updateSettings(newSettings)
 }
 
@@ -147,11 +147,13 @@ void connect() {
 }
 
 void updateSettings(List<Map<String,Map>> newSettings) {
+   if (enableDebug) log.debug "updateSettings($newSettings)"
    newSettings.each { Map newSetting ->
       newSetting.each { String settingName, Map settingValue ->
          device.updateSetting(settingName, settingValue)
       }
    }
+   initialize(true)
 }
 
 void disconnect() {

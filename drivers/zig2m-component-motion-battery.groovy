@@ -1,5 +1,5 @@
 /**
- * ====================  Generic Component Moisture/Temperature Driver ==========================
+ * ===================  Generic Component Motion (w/ Battery) Driver ========================
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -13,22 +13,24 @@
  * =======================================================================================
  *
  *  Changelog:
- *  2021-11-13 - Initial release
+ *  2021-11-18 Initial release
  */
 
 import groovy.transform.Field
 
-@Field static final List<String> parsableAttributes = ["battery", "water", "temperature"]
+@Field static final List<String> parsableAttributes = ["battery", "motion"]
 @Field static final Integer debugAutoDisableMinutes = 30
 
 metadata {
-   definition(name: "Generic Component Moisture/Temperature Sensor", namespace: "RMoRobert", author: "Robert Morris", component: true) {
+   definition(name: "Generic Component Motion (with Battery) Sensor", namespace: "RMoRobert", author: "Robert Morris", component: true) {
       capability "Sensor"
       capability "Battery"
+      capability "MotionSensor"
       capability "TemperatureMeasurement"
-      capability "WaterSensor"
+      capability "IlluminanceMeasurement"
       capability "Refresh"
    }
+
    preferences {
       input name: "enableDebug", type: "bool", title: "Enable debug logging", defaultValue: true
       input name: "enableDesc", type: "bool", title: "Enable descriptionText logging", defaultValue: true

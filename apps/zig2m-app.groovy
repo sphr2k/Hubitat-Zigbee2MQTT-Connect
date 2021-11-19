@@ -21,9 +21,10 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2021-11-09
+ *  Last modified: 2021-11-18
  * 
  *  Changelog:
+ *  v0.4    - (Beta) More driver matches, app to/from broker setting updates, etc.
  *  v0.1    - (Beta) Initial Public Release
  */ 
 
@@ -113,6 +114,12 @@ Map pageFirstPage() {
          if (enableDebug) log.debug "Not creating broker device because some information missing. Re-run setup."
       }
    }
+   else {
+      if (state.wasOnConnectPage == true) {
+         updateBrokerDeviceSettings()
+         state.remove("wasOnConnectPage")
+      }
+   }
    if (app.getInstallationState() == "INCOMPLETE") {
       // Shouldn't happen with installOnOpen: true, but just in case...
       dynamicPage(name: "pageIncomplete", uninstall: true, install: true) {
@@ -134,6 +141,7 @@ Map pageFirstPage() {
 Map pageConnect() {
    logDebug("pageConnect()...")
    DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   state.wasOnConnectPage = true
    dynamicPage(name: "pageConnect", uninstall: true, install: false, nextPage: "pageFirstPage") {
       section("Connect to MQTT Broker") {
          if (brokerDev != null) {
@@ -228,6 +236,10 @@ List<String> getBestMatchDriver(List<Map> exposes) {
          driverName = "Generic Component Motion/Temperature Sensor"
          namespace = customDriverNamespace
       }
+      else if (exposes.find { it.name == "battery"} ) {
+         driverName = "Generic Component Motion (with Battery) Sensor"
+         namespace = customDriverNamespace
+      }
       else {
          driverName = "Generic Component Motion Sensor"
       }
@@ -258,7 +270,7 @@ List<String> getBestMatchDriver(List<Map> exposes) {
       driverName = "Zigbee2MQTT Component Button"
       namespace = customDriverNamespace
    }
-   else if (exposes.find { it.name == "state" }) {
+   else if (exposes.features.find { flist -> flist.find { f -> f.name == "state"  } } ) {
       driverName = "Generic Component Switch"
    }
    else {
@@ -384,6 +396,7 @@ void createNewSelectedSwitchDevices() {
 }
 
 void updateSettings(List<Map<String,Map>> newSettings) {
+   if (enableDebug) log.debug "updateSettings($newSettings)"
    newSettings.each { Map newSetting ->
       newSetting.each { String settingName, Map settingValue ->
          app.updateSetting(settingName, settingValue)
@@ -395,12 +408,12 @@ void updateBrokerDeviceSettings() {
    DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
    List<Map<String,Map>> newSettings = []
    newSettings << ["ipAddress": [value: settings.ipAddress, type: "string"]]
-   newSettings << ["port": [value: settings.ipAddress, type: "number"]]
-   newSettings << ["topic": [value: settings.ipAddress, type: "string"]]
-   newSettings << ["clientId": [value: settings.ipAddress, type: "string"]]
-   newSettings << ["useTLS": [value: settings.ipAddress, type: "bool"]]
-   newSettings << ["username": [value: settings.ipAddress, type: "string"]]
-   newSettings << ["password": [value: settings.ipAddress, type: "password"]]
+   newSettings << ["port": [value: settings.port, type: "number"]]
+   newSettings << ["topic": [value: settings.topic, type: "string"]]
+   newSettings << ["clientId": [value: settings.clientId, type: "string"]]
+   newSettings << ["useTLS": [value: settings.useTLS, type: "bool"]]
+   newSettings << ["username": [value: settings.username, type: "string"]]
+   newSettings << ["password": [value: settings.password, type: "password"]]
    brokerDev.updateSettings(newSettings)
    pauseExecution(2500)
    brokerDev.initialize()

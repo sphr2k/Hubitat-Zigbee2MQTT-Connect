@@ -161,34 +161,9 @@ metadata {
    }
 }
 
-void installed() {
-   log.debug "Installed..."
-   initialize()
-}
+#include RMoRobert.zigbee2MQTTComponentDriverLibrary_Common
 
-void updated() {
-   log.debug "Updated..."
-   initialize()
-}
-
-void initialize() {
-   if (enableDebug) log.debug "Initializing..."
-   if (enableDebug) {
-      Integer disableTime = 1800
-      log.debug "Debug logging will be automatically disabled in ${disableTime/60} minutes"
-      runIn(disableTime, debugOff)
-   }
-}
-
-void debugOff() {
-   log.warn "Disabling debug logging"
-   device.updateSetting("enableDebug", [value:"false", type:"bool"])
-}
-
-void setNumberOfButtons(Number number) {
-   if (enableDebug) log.debug "setNumberOfButtons($number)"
-   doSendEvent("numberOfButtons", number)
-}
+// Using custom parse() here, NOT an include  for RMoRobert.zigbee2MQTTComponentDriverLibrary_Parse
 
 void parse(description) {
    log.warn "not implemented: parse(Object $description)"
@@ -223,6 +198,11 @@ void parse(List<Map> actionData) {
          doSendEvent(attr, actionData["$attr"])
       }
    }
+}
+
+void setNumberOfButtons(Number number) {
+   if (enableDebug) log.debug "setNumberOfButtons($number)"
+   doSendEvent("numberOfButtons", number)
 }
 
 void push(Integer buttonNumber) {
