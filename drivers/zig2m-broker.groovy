@@ -181,6 +181,12 @@ void connectionWatchdog() {
       initialize()
       hasInitalized[device.idAsLong] = true
    }
+   else if (!(interfaces.mqtt.isConnected())) {
+      doSendEvent("status", "disconnected")
+      // 5 is default if previously connected successfully, so this should only happen the first time
+      // rather than doing this more often if the watchdog runs more often than the reconect attempt:
+      if (state.connectionRetryTime == 5) runIn(state.connectionRetryTime, "reconnect")
+   }
 }
 
 void parse(String message) {
@@ -431,7 +437,6 @@ Map<String,String> getGenericColorName(Number hue, Number saturation=100, Boolea
    String colorName
    hue = hue.toInteger()
    if (!hiRezHue) hue = (hue * 3.6)
-   log.trace "hue = $hue"
    switch (hue.toInteger()) {
       case 0..15: colorName = "Red"
          break

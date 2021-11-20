@@ -200,6 +200,13 @@ void createNewSelectedDevices() {
                      if (z2mDev.definition?.vendor) d.updateDataValue("vendor", z2mDev.definition.vendor)
                      if (z2mDev.definition?.model) d.updateDataValue("model", z2mDev.definition.model)
                   }
+                  if (driverName == "Zigbee2MQTT Component RGBW Effects Bulb") {
+                     Map effectValue = z2mDev.definition?.exposes?.find { it.name == "effect" }
+                     log.error "does expose? ${effectValue}"
+                     if (effectValue?.values != null) {
+                        d.setLightEffects(effectValue.values)
+                     }
+                  }
                }
                catch (Exception ex) {
                   log.error "Unable to create device for  IEEE = $ieee, name = ${z2mDev.friendly_name}: $ex"
@@ -254,7 +261,8 @@ List<String> getBestMatchDriver(List<Map> exposes) {
    else if (exposes.features.find { flist -> flist.find { f -> f.name == "color_xy"  || f.name == "color_hs "} &&
                                            flist.find { f-> f.name == "color_temp" } } &&
             exposes.find { it.name == "effect"}) {
-      driverName = "Generic Component RGBW Light Effects"
+      driverName = "Zigbee2MQTT Component RGBW Effects Bulb"
+      namespace = customDriverNamespace
    }   
    else if (exposes.features.find { flist -> flist.find { f -> f.name == "color_xy"  || f.name == "color_hs "} &&
                                            flist.find { f-> f.name == "color_temp" } }) {
@@ -460,7 +468,7 @@ void componentOff(DeviceWrapper device) {
    brokerDev.publishForIEEE(ieee, "set", payload)
 }
 
-void componentSetLevel(DeviceWrapper device, Number level, Number transitionTime) {
+void componentSetLevel(DeviceWrapper device, Number level, Number transitionTime=null) {
    if (enableDebug) log.debug "componentSetLevel(${device.displayName}, $level, $transitionTime)"
    DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
    String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
@@ -468,6 +476,16 @@ void componentSetLevel(DeviceWrapper device, Number level, Number transitionTime
    if (transitionTime != null) payload << [transition: transitionTime]
    brokerDev.publishForIEEE(ieee, "set", payload)
 }
+
+/* Haven't found Z2M bulb that supports yet...
+void componentPresetLevel(DeviceWrapper device, Number level) {
+   if (enableDebug) log.debug "componentPresetLevel(${device.displayName}, $level)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Number> payload = [brightness: Math.round((level as Float) * 2.55)]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+*/
 
 void componentStartLevelChange(DeviceWrapper device, String direction) {
    if (enableDebug) log.debug "componentStartLevelChange(${device.displayName}, $direction)"
@@ -486,7 +504,7 @@ void componentStopLevelChange(DeviceWrapper device) {
    brokerDev.publishForIEEE(ieee, "set", payload)
 }
 
-void componentSetColorTemperature(DeviceWrapper device, Number colorTemperature, Number level, Number transitionTime) {
+void componentSetColorTemperature(DeviceWrapper device, Number colorTemperature, Number level=null, Number transitionTime=null) {
    if (enableDebug) log.debug "componentSetColorTemperature(${device.displayName}, $colorTemperature, $level, $transitionTime)"
    DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
    String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
@@ -540,4 +558,18 @@ void componentSetSaturation(DeviceWrapper device, Number sat) {
    brokerDev.publishForIEEE(ieee, "set", payload)
 }
 
+// Hubitat uses number, but String is easier to work with in Z2M, so custom
+// bulb driver implements both. Use the String variant only when calling parent for now!
+void componentSetEffect(DeviceWrapper device, String effectName) {
+   if (enableDebug) log.debug "componentSetEffect(${device.displayName}, String $effectName)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Number> payload = [effect: effectName]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetEffect(DeviceWrapper device, Number effectNumber) {
+   if (enableDebug) log.debug "componentSetEffect(${device.displayName}, Number $effectNumber)"
+   log.warn "Not yet implemented; use String effecet name instead of number for now."
+}
  
