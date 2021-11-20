@@ -295,6 +295,7 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                break
             ///// Sensors
             case "battery":
+               if (value == null) break
                Integer eventValue = Math.round(value as float)
                eventList << [name: "battery", value: eventValue] 
                break
