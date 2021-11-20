@@ -28,10 +28,7 @@ import java.util.concurrent.ConcurrentHashMap
 // used for some "release" events (check last push/hold)
 @Field static final ConcurrentHashMap<Long,Integer> lastButtonNumber = [:]
 
-// Doesn't include button attributes, which are handled separately:
-@Field static final List<String> parsableAttributes = ["battery"]
-
-// [manufacturer: [model_id: ... ]]
+// [vendor: [model: ... ]]
 @Field static final Map<String,Map<String,Map<String,Map<String,Integer>>>> buttonEventMap = [
    "AduroSmart": [
       "81825": [
@@ -138,6 +135,21 @@ import java.util.concurrent.ConcurrentHashMap
          "brightness_stop": [released: 0],
       ]
    ],
+   "Leedarson": [
+      "6ARCZABZH": [  // EcoSmart 4-button remote, possibly others
+         "on": [pushed: 1],
+         "off": [pushed: 1],
+         "brightness_up": [pushed: 2],
+         "brightness_down": [pushed: 2],
+         "colortemp_up": [pushed: 3],
+         "colortemp_down": [pushed: 3],
+         "colortemp_up_hold": [held: 3],
+         "colortemp_down_hold": [held: 3],
+         "colortemp_up_release": [released: 3],
+         "colortemp_down_release": [released: 3],
+         "recall": [pushed: 4],
+      ]
+   ]
 ]
 
 
@@ -169,13 +181,13 @@ void parse(description) {
    log.warn "not implemented: parse(Object $description)"
 }
 
-void parse(List<Map> actionData) {
-   if (enableDebug) log.debug "parse(List $actionData)"
-   Map rawBtnAction = actionData.find { it.name == "action" }
+void parse(List<Map> data) {
+   if (enableDebug) log.debug "parse(List $data)"
+   Map rawBtnAction = data.find { it.name == "action" }
    if (rawBtnAction?.value) {
-      Map<String,Integer> btnEvt = buttonEventMap.get(getDataValue("manufacturer"))?.get(getDataValue("model_id"))?.get(rawBtnAction.value)
+      Map<String,Integer> btnEvt = buttonEventMap.get(getDataValue("vendor"))?.get(getDataValue("model"))?.get(rawBtnAction.value)
       if (!btnEvt) {
-         "no known button events; skipping"
+         log.debug "no known button events; skipping"
       }
       else {
          String evtName = btnEvt.keySet()[0]
@@ -189,13 +201,8 @@ void parse(List<Map> actionData) {
       }
    }
    else {
-      // can uncomment if need more detail, but this will also appear for non-button events like battery, which are handled below:
-      //if (enableDebug) log.warn "ignoring unknown button event: $actionData"
-   }
-   // Handle other possibilities, like battery:
-   parsableAttributes.each { String attr ->
-      if (actionData["$attr"] != null) {
-         doSendEvent(attr, actionData["$attr"])
+      if (data.find { it.name == "battery" }) {
+         doSendEvent("battery", Math.round(data.find { it.name == "battery" }.value as float))
       }
    }
 }
@@ -230,7 +237,7 @@ private void doSendButtonEvent(String eventName, Integer eventValue, Boolean for
 }
 
 private void doSendEvent(String eventName, eventValue) {
-   //if (enableDebug) log.debug ("Creating event for $eventName...")
+   if (enableDebug) log.debug "doSendEvent($eventName, $eventValue)"
    String descriptionText = "${device.displayName} ${eventName} is ${eventValue}"
    if (settings.enableDesc) log.info descriptionText
    sendEvent(name: eventName, value: eventValue, descriptionText: descriptionText)
