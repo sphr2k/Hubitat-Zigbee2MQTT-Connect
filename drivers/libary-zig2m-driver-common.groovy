@@ -18,6 +18,7 @@ void installed() {
 void updated() {
    log.debug "updated()"
    log.warn "description logging is: ${enableDesc == true}"
+   initialize()
 }
 
 void initialize() {

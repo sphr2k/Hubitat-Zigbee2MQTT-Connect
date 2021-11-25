@@ -1,8 +1,8 @@
 {
-   "packageName": "HASSConnect - Home Assistant Integration",
+   "packageName": "Zigbee2MQTT Connect",
    "minimumHEVersion": "2.2.9",
    "author": "Robert Morris",
-   "dateReleased": "2021-10-30",
+   "dateReleased": "2021-11-24",
    "communityLink": "https://community.hubitat.com/t/COMING-SOON",
    "licenseFile": "",
    "releaseNotes": "Initial release. Beta quality; see forum thread for more details.",
@@ -28,10 +28,26 @@
          "required": true
       },
       {
+         "id": "xxx",
+         "name": "Zigbee2MQTT Component Button",
+         "namespace": "RMoRobert",
+         "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-button.groovy",
+         "version": "0.9.0",
+         "required": true
+      },
+      {
          "id": "24360cf3-cd6e-428b-948a-43973f1634d0",
          "name": "Generic Component Moisture/Temperature Sensor",
          "namespace": "RMoRobert",
          "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-moisture-temperature.groovy",
+         "version": "0.9.0",
+         "required": true
+      },
+      {
+         "id": "xxxx",
+         "name": "Generic Component Motion (with Battery) Sensor",
+         "namespace": "RMoRobert",
+         "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-motion-battery.groovy",
          "version": "0.9.0",
          "required": true
       },
@@ -56,6 +72,22 @@
          "name": "Generic Component Motion/Temperature Sensor",
          "namespace": "RMoRobert",
          "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-motion-temperature.groovy",
+         "version": "0.9.0",
+         "required": true
+      },
+      {
+         "id": "xxxx",
+         "name": "Zigbee2MQTT Component RGBW Effects Bulb",
+         "namespace": "RMoRobert",
+         "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-rgbw-effects-bulb.groovy",
+         "version": "0.9.0",
+         "required": true
+      },
+      {
+         "id": "xxxx",
+         "name": "Zigbee2MQTT Generic Device",
+         "namespace": "RMoRobert",
+         "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-generic-device.groovy",
          "version": "0.9.0",
          "required": true
       }

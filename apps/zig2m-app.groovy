@@ -21,7 +21,7 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2021-11-18
+ *  Last modified: 2021-11-24
  * 
  *  Changelog:
  *  v0.4    - (Beta) More driver matches, app to/from broker setting updates, etc.
@@ -143,7 +143,7 @@ Map pageConnect() {
    DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
    state.wasOnConnectPage = true
    dynamicPage(name: "pageConnect", uninstall: true, install: false, nextPage: "pageFirstPage") {
-      section("Connect to MQTT Broker") {
+      section(styleSection("Connect to MQTT Broker")) {
          if (brokerDev != null) {
             paragraph "NOTE: Broker device already added to Hubitat. Editing the below may fail; try editing the settings on the broker device device directly if any of the below fails."
          }
@@ -169,13 +169,13 @@ Map pageConnect() {
 // Returns default client ID based on hub location  name
 String getDefaultClientId() {
    String id = location.name.replaceAll("[^a-zA-Z0-9]+","").toLowerCase() ?: "hubitat"
-   if (id.size() > 19) id = id.substring(0,19)
-   id += "_z2m"
+   if (id.size() > 16) id = id.substring(0,16)
+   id += "_z2m_${app.id}"
    return id
 }
 
 /**
- * Adds new devices if any were selected on selection pages (called when navigating back to main "manage" page)
+ * Adds new devices if any were selected on selection page (called when navigating back to main "manage" page)
  */
 void createNewSelectedDevices() {
    // Add new devices if any were selected
@@ -282,7 +282,8 @@ List<String> getBestMatchDriver(List<Map> exposes) {
       driverName = "Generic Component Switch"
    }
    else {
-      log.trace "unable to find driver for $exposes"
+      driverName = "Zigbee2MQTT Generic Device"
+      namespace = customDriverNamespace
    }
    return [driverName, namespace]
 }
@@ -376,33 +377,6 @@ String styleSection(String sectionTitle) {
    return """<span style="font-weight: bold; font-size: 110%">$sectionTitle</span>"""
 }
 
-/** Creates new Hubitat devices for new user-selected switches on switch-selection
- * page (intended to be called after navigating away/using "Done" from that page)
- */
-void createNewSelectedSwitchDevices() {
-   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
-   if (brokerDev == null) log.error("Unable to find Zigbee2MQTT broker device")
-   Map devCache = brokerDev?.getAllSwitchesCache()
-   settings["newSwitches"].each {
-      String name = devCache.get(it)
-      if (name) {
-         try {
-            logDebug("Creating new device for HASS switch ${it} (${name})")
-            String devDNI = "Zig2M/${app.id}/Switch/${it}"
-            Map devProps = [name: name]
-            addChildDevice("hubitat", "Generic Component Switch", devDNI, devProps)
-         }
-         catch (Exception ex) {
-            log.error("Unable to create new device for $it: $ex")
-         }
-      } else {
-         log.error("Unable to create new device for $it: entity ID not found in HASS cache")
-      }
-   }
-   brokerDev.clearSwitchesCache()
-   app.removeSetting("newSwitches")
-}
-
 void updateSettings(List<Map<String,Map>> newSettings) {
    if (enableDebug) log.debug "updateSettings($newSettings)"
    newSettings.each { Map newSetting ->
@@ -451,6 +425,22 @@ private void logDebug(String str) {
 ////////////////////////////////////
 // Component Methods
 ////////////////////////////////////
+
+void componentRefresh(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentRefresh(${device.displayName})"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   List<Map<String,String>> payloads = []
+   if (device.hasAttribute("switch")) payload << [state: ""]
+   if (device.hasAttribute("level")) payload << [brightness: ""]
+   if (device.hasAttribute("hue")) payload << [color: [x: "", y: ""]]
+   if (device.hasAttribute("colorTemperature")) payload << [color_temp: ""]
+   // probably can flesh this out more for other devices later...
+   payloads.each { Map<String,String> payload ->
+      brokerDev.publishForIEEE(ieee, "get", payload)
+      pauseExecution(50)
+   }
+}
 
 void componentOn(DeviceWrapper device) {
    if (enableDebug) log.debug "componentOn(${device.displayName})"
@@ -573,3 +563,31 @@ void componentSetEffect(DeviceWrapper device, Number effectNumber) {
    log.warn "Not yet implemented; use String effecet name instead of number for now."
 }
  
+void componentPublish(DeviceWrapper device, String topic=null, String payload=null) {
+   if (enableDebug) log.debug "componentPublish(${device.displayName}, $topic, $payload)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   brokerDev.publishForIEEE(ieee, topic, payload)
+}
+
+String getDefinitionForDevice(DeviceWrapper device) {
+   if (enableDebug) log.debug "getDefinitionForDevice(${device.displayName})"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   if (brokerDev != null) {
+      List zigDevs = brokerDev.getDeviceList()
+      Map z2mDev = zigDevs.find { it.ieee_address == ieee }
+      if (z2mDev != null) {
+         // Can use if want Groovy toString output instead:
+         //log.debug "DEFINITION: ${z2mDev.definition}"
+         log.debug "DEFINITION: " + groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(z2mDev.definition))
+      }
+      else {
+         log.debug "No device found on Zigbee2MQTT broker for ${device.displayName}"
+      }
+   }
+   else {
+      log.warn "Zigbee2MQTT Broker device not found!"
+   }
+   return 
+}

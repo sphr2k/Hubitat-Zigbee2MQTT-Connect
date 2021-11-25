@@ -29,8 +29,8 @@ import groovy.transform.Field
 import java.util.concurrent.ConcurrentHashMap
 import com.hubitat.app.DeviceWrapper
 
-// Automatically disable debug logging after (default=1800)...
-@Field static final Integer debugAutoDisableSeconds = 1800
+// Automatically disable debug logging after (default=30)...
+@Field static final Integer debugAutoDisableMinutes = 30
 // Updating code disconnects MQTT without getting disconenction message; this is one way to handle that:
 @Field static final ConcurrentHashMap<Long,Boolean> hasInitalized = [:]
 @Field static final Boolean enableConnectionWatchdog = true
@@ -98,8 +98,8 @@ void updated() {
 void initialize(Boolean forceReconnect=true) {
    log.debug "initialize()"
    if (enableDebug) {
-      log.debug "Debug logging will be automatically disabled in ${debugAutoDisableSeconds/60} minutes"
-      runIn(debugAutoDisableSeconds, "debugOff")
+      log.debug "Debug logging will be automatically disabled in ${debugAutoDisableMinutes} minutes"
+      runIn(debugAutoDisableMinutes*60, "debugOff")
    }
    if (forceReconnect == true) {
       doSendEvent("status", "disconnected")
@@ -224,10 +224,7 @@ void parse(String message) {
       case { it.startsWith("${settings.topic}/") && (it.tokenize('/')[-1] == "availability") }:
          if (enableDebug) log.debug "ignoring /availability ${parsedMsg.topic}, payload ${parsedMsg.payload}"
          break
-      // Anything left *should* be a friendly name (device) at this point, so attempt parsing...
-      // Note: device names can have slashes, so commented-out 'case' won't work!
-      case { it.startsWith("${settings.topic}/") }:
-      //case { it.startsWith("${settings.topic}/") && (it.indexOf('/', "${settings.topic}/".size()) < 0) }:
+      case { it.startsWith("${settings.topic}/") && (it.indexOf('/', "${settings.topic}/".size()) < 0) }:
          //log.trace "is device --> ${parsedMsg.topic} ---> PAYLOAD: ${parsedMsg.payload}"
          String friendlyName = parsedMsg.topic.substring("${settings.topic}/".length())
          String ieeeAddress =  devices[device.idAsLong].find { it.friendly_name == friendlyName }.ieee_address
@@ -247,7 +244,7 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
       List<Map> eventList = []
    if (payload.startsWith("{") || payload.trim().startsWith("{")) {
       Map payloadMap = parseJson(payload)
-      log.warn payloadMap
+      //log.warn payloadMap
       String colorMode = payloadMap.color_mode
       payloadMap.each { String key, value ->
          switch (key) {
@@ -295,7 +292,7 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                break
             ///// Sensors
             case "battery":
-               if (value == null) break
+               if (value == null || !value) break
                Integer eventValue = Math.round(value as float)
                eventList << [name: "battery", value: eventValue] 
                break
@@ -399,7 +396,7 @@ void mqttClientStatus(String message) {
 
 void subscribeToTopic(String toTopic = "${settings.topic}/#") {
    if (enableDebug) log.debug "subscribe($toTopic)"
-   log.trace "is connected = ${interfaces.mqtt.isConnected()}"
+   //if (enableDebig) log.debug "is connected = ${interfaces.mqtt.isConnected()}"
    interfaces.mqtt.subscribe(toTopic)
 }
 
@@ -410,13 +407,20 @@ void publish(String topic, String payload="", Integer qos=0, Boolean retained=fa
 }
 
 // Finds device IEEE and prepends base topic and friendly name to 'topic' parameter
-void publishForIEEE(String ieee, String topic, Map jsonPayload="", Integer qos=0, Boolean retained=false) {
+void publishForIEEE(String ieee, String topic=null, Object jsonPayload="", Integer qos=0, Boolean retained=false) {
    if (enableDebug) log.debug "publishForIEEE(ieee = $ieee, topic = $topic, jsonPayload = $jsonPayload, qos = $qos, retained = $retained)"
    String friendlyName = devices[device.idAsLong].find { it.ieee_address == ieee }?.friendly_name
    if (friendlyName != null) {
-      String json = JsonOutput.toJson(jsonPayload)
-      if (enableDebug) log.debug "publishing: topic = ${settings.topic}/${friendlyName}/${topic}, payload = ${json}"
-      interfaces.mqtt.publish("${settings.topic}/${friendlyName}/${topic}", json, qos, retained)
+      String fullTopic = topic ? "${settings.topic}/${friendlyName}/${topic}" : "${settings.topic}/${friendlyName}"
+      String stringPayload
+      if (jsonPayload instanceof String || jsonPayload instanceof GString) {
+         stringPayload = jsonPayload
+      }
+      else {
+         stringPayload = JsonOutput.toJson(jsonPayload)
+      }
+      if (enableDebug) log.debug "publishing: topic = ${fullTopic}, payload = ${stringPayload}"
+      interfaces.mqtt.publish(fullTopic, stringPayload, qos, retained)
    }
    else {
       if (enableDebug) log.debug "not publishing; no device found for IEEE $ieee"

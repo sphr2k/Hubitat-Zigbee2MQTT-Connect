@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 // used for some "release" events (check last push/hold)
 @Field static final ConcurrentHashMap<Long,Integer> lastButtonNumber = [:]
+@Field static final Integer debugAutoDisableMinutes = 30
 
 // [vendor: [model: ... ]]
 @Field static final Map<String,Map<String,Map<String,Map<String,Integer>>>> buttonEventMap = [
