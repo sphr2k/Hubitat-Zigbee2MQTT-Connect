@@ -28,7 +28,7 @@
          "required": true
       },
       {
-         "id": "xxx",
+         "id": "5a54794a-59d9-4393-9b69-9d8aabc5b3bf",
          "name": "Zigbee2MQTT Component Button",
          "namespace": "RMoRobert",
          "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-button.groovy",
@@ -44,7 +44,7 @@
          "required": true
       },
       {
-         "id": "xxxx",
+         "id": "ed0d02a8-6fff-491e-bebe-f2b8f1870128",
          "name": "Generic Component Motion (with Battery) Sensor",
          "namespace": "RMoRobert",
          "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-motion-battery.groovy",
@@ -76,7 +76,7 @@
          "required": true
       },
       {
-         "id": "xxxx",
+         "id": "d45b3a2c-37e9-4f21-897a-a50ed542319c",
          "name": "Zigbee2MQTT Component RGBW Effects Bulb",
          "namespace": "RMoRobert",
          "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-rgbw-effects-bulb.groovy",
@@ -84,7 +84,15 @@
          "required": true
       },
       {
-         "id": "xxxx",
+         "id": "c5a8d15b-79d1-4ae9-9fba-c188e300b630",
+         "name": "Generic Component Temperature/Humidity Sensor",
+         "namespace": "RMoRobert",
+         "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-temperature-humidity.groovy",
+         "version": "0.9.0",
+         "required": true
+      },      
+      {
+         "id": "e370939d-c957-4a11-bb2f-fb473f079f01",
          "name": "Zigbee2MQTT Generic Device",
          "namespace": "RMoRobert",
          "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-generic-device.groovy",
