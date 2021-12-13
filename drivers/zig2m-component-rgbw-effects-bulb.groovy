@@ -13,7 +13,8 @@
  * =======================================================================================
  *
  *  Changelog:
- *  2021-11-19 Initial release
+ *  2021-12-12 - Added "quirks" preference for on/off check for level change commands
+ *  2021-11-19 - Initial release
  */
 
 import groovy.transform.Field
@@ -41,11 +42,49 @@ metadata {
    preferences {
       input name: "enableDebug", type: "bool", title: "Enable debug logging", defaultValue: true
       input name: "enableDesc", type: "bool", title: "Enable descriptionText logging", defaultValue: true
+      input name: "quirkChangeLevelOn", type: "bool", title: "Quirk: ignore startLevelChange() if switch not on"
    }
 }
 
-#include RMoRobert.zigbee2MQTTComponentDriverLibrary_Common
+// NOT including: RMoRobert.zigbee2MQTTComponentDriverLibrary_Common
+// because overrides installed() method for quirk-setting
+
 #include RMoRobert.zigbee2MQTTComponentDriverLibrary_Parse
+
+void installed() {
+   log.debug "installed()"
+   device.updateSetting("enableDesc", [type:"bool", value:true])
+   runIn(2, "setDefaultQuirks")
+   refresh()
+}
+
+// Common methods and commands:
+
+void updated() {
+   log.debug "updated()"
+   log.warn "description logging is: ${enableDesc == true}"
+   initialize()
+}
+
+void initialize() {
+   log.debug "initialize()"
+   if (enableDebug) {
+      log.debug "Debug logging will be automatically disabled in ${debugAutoDisableMinutes} minutes"
+      runIn(debugAutoDisableMinutes*60, "debugOff")
+   }
+}
+
+void debugOff() {
+   log.warn "Disabling debug logging"
+   device.updateSetting("enableDebug", [value:false, type:"bool"])
+}
+
+void refresh() {
+   if (enableDebug) log.debug "refresh()"
+   parent?.componentRefresh(this.device)
+}
+
+// "Regular" device commands:
 
 void on() {
    if (enableDebug) log.debug "on()"
@@ -56,7 +95,6 @@ void off() {
    if (enableDebug) log.debug "off()"
    parent.componentOff(this.device)
 }
-
 
 void setLevel(Number level) {
    if (enableDebug) log.debug "setLevel($level)"
@@ -70,6 +108,8 @@ void setLevel(Number level, Number ramp) {
 
 void startLevelChange(String direction) {
    if (enableDebug) log.debug "startLevelChange($direction)"
+   if (settings.quirkChangeLevelOn == true && device.currentValue("switch") == "off") return
+   log.trace "proceed..."
    parent.componentStartLevelChange(this.device, direction)
 }
 
@@ -160,4 +200,13 @@ void setLightEffects(List effectList) {
       effectMap << ["$i": effectName]
    }
    setLightEffects(effectMap)
+}
+
+// Other methods
+
+// Set "quirks" preferneces by default based on vendor/model:
+void setDefaultQuirks() {
+   if (getDataValue("vendor") == "Sengled") {
+      device.updateSetting("quirkChangeLevelOn", [type:"bool", value:true])
+   }
 }

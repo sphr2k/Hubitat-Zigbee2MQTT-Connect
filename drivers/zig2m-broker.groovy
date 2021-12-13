@@ -14,9 +14,10 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2021-11-18
+ *  Last modified: 2021-12-12
  *
  *  Changelog:
+ *  v0.5    - (Beta) Preliminary group suppport
  *  v0.4b   - (Beta) Added connection watchdog to broker (better reconnection after code updates, etc.)
  *  v0.4    - (Beta) Improved reconnection after code update, etc.
  *  v0.3    - (Beta) Added parsing to button events (most work done in button driver); improved driver/device matches
@@ -36,6 +37,7 @@ import com.hubitat.app.DeviceWrapper
 @Field static final Boolean enableConnectionWatchdog = true
 // List when received from Z2M:
 @Field static final ConcurrentHashMap<Long,List> devices = [:]
+@Field static final ConcurrentHashMap<Long,List> groups = [:]
 
 metadata {
    definition(
@@ -50,7 +52,8 @@ metadata {
       command "connect"
       command "disconnect"
 
-      command "logDevices" // temporary for development; output devices field to logs
+      // can remove when no longer under significant development; output devices and groups fields to logs
+      command "logDevices"
 
       command "subscribeToTopic", [[name:"topic", type: "STRING", description: "MQTT topic"]]
       command "publish", [[name: "topic*", type: "STRING", description: "MQTT topic (will prepend with base topic)"],
@@ -116,7 +119,6 @@ void initialize(Boolean forceReconnect=true) {
       unschedule("connectionWatchdog")
    }
 }
-
 
 void debugOff() {
    log.warn "Disabling debug logging"
@@ -200,6 +202,8 @@ void parse(String message) {
          devices[device.idAsLong] = parseJson(parsedMsg.payload)
          //log.trace "devices = ${devices[device.idAsLong]}"
          break
+      case { it.startsWtih("${settings.topic}/bridge/groups") }:
+         groups[device.idAsLong] = parseJson(parsedMsg.payload)
       // General Bridge info, some of which we may care about but are ignoring for now...but helps filter remaining to just devices
       case { it.startsWith("${settings.topic}/bridge/") }:
          if (enableDebug) log.debug "ignoring bridge topic ${parsedMsg.topic}, payload ${parsedMsg.payload}"
@@ -216,7 +220,7 @@ void parse(String message) {
       case { it.startsWith("${settings.topic}/") && (it.tokenize('/')[-1] == "get") }:
          if (enableDebug) log.debug "ignoring /get ${parsedMsg.topic}, payload ${parsedMsg.payload}"
          break
-      // Not sure if this (also) ever gets *recevied* or just sent, but just in case...
+      // Not sure if this (also) ever gets recevied or just sent, but just in case...
       case { it.startsWith("${settings.topic}/") && (it.tokenize('/')[-1] == "set") }:
          if (enableDebug) log.debug "ignoring /set ${parsedMsg.topic}, payload ${parsedMsg.payload}"
          break
@@ -396,7 +400,7 @@ void mqttClientStatus(String message) {
 
 void subscribeToTopic(String toTopic = "${settings.topic}/#") {
    if (enableDebug) log.debug "subscribe($toTopic)"
-   //if (enableDebig) log.debug "is connected = ${interfaces.mqtt.isConnected()}"
+   //if (enableDebug) log.debug "is connected = ${interfaces.mqtt.isConnected()}"
    interfaces.mqtt.subscribe(toTopic)
 }
 
@@ -432,9 +436,20 @@ List getDeviceList() {
    return devices[device.idAsLong] ?: []
 }
 
+// Returns devices in "raw" Z2M format (except parsed into List); used by parent app
+List getGroupList() {
+   return groups[device.idAsLong] ?: []
+}
+
 void logDevices(Boolean prettyPrint=true) {
-   if (!prettyPrint) log.trace devices[device.idAsLong]
-   else log.trace groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(devices[device.idAsLong]))
+   if (!prettyPrint) {
+      log.trace devices[device.idAsLong]
+      if (includeGroups) log.trace groups[device.idAsLong]
+   }
+   else {
+      log.trace groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(devices[device.idAsLong]))
+      if (includeGroups) log.trace groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(groups[device.idAsLong]))
+   }
 }
 
 // Hubiat-provided color/name mappings

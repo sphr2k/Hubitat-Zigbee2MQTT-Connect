@@ -2,7 +2,7 @@
    "packageName": "Zigbee2MQTT Connect",
    "minimumHEVersion": "2.2.9",
    "author": "Robert Morris",
-   "dateReleased": "2021-11-24",
+   "dateReleased": "2021-12-12",
    "communityLink": "https://community.hubitat.com/t/COMING-SOON",
    "licenseFile": "",
    "releaseNotes": "Initial release. Beta quality; see forum thread for more details.",
@@ -32,6 +32,14 @@
          "name": "Zigbee2MQTT Component Button",
          "namespace": "RMoRobert",
          "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-button.groovy",
+         "version": "0.9.0",
+         "required": true
+      },
+      {
+         "id": "xxx",
+         "name": "Zigbee2MQTT Component Lock (with Codes)",
+         "namespace": "RMoRobert",
+         "location": "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTConnect/main/drivers/zig2m-component-lock-w-codes.groovy",
          "version": "0.9.0",
          "required": true
       },

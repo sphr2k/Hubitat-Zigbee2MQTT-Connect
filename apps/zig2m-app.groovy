@@ -21,7 +21,7 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2021-11-24
+ *  Last modified: 2021-12-12
  * 
  *  Changelog:
  *  v0.4    - (Beta) More driver matches, app to/from broker setting updates, etc.
@@ -202,7 +202,7 @@ void createNewSelectedDevices() {
                   }
                   if (driverName == "Zigbee2MQTT Component RGBW Effects Bulb") {
                      Map effectValue = z2mDev.definition?.exposes?.find { it.name == "effect" }
-                     log.error "does expose? ${effectValue}"
+                     //log.error "does expose? ${effectValue}"
                      if (effectValue?.values != null) {
                         d.setLightEffects(effectValue.values)
                      }
@@ -434,10 +434,11 @@ void componentRefresh(DeviceWrapper device) {
    DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
    String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
    List<Map<String,String>> payloads = []
-   if (device.hasAttribute("switch")) payload << [state: ""]
-   if (device.hasAttribute("level")) payload << [brightness: ""]
-   if (device.hasAttribute("hue")) payload << [color: [x: "", y: ""]]
-   if (device.hasAttribute("colorTemperature")) payload << [color_temp: ""]
+   if (device.hasAttribute("switch")) payloads << [state: ""]
+   if (device.hasAttribute("level")) payloads << [brightness: ""]
+   if (device.hasAttribute("hue")) payloads << [color: [x: "", y: ""]]
+   if (device.hasAttribute("colorTemperature")) payloads << [color_temp: ""]
+   if (device.hasAttribute("lock")) payloads << [state: ""]
    // probably can flesh this out more for other devices later...
    payloads.each { Map<String,String> payload ->
       brokerDev.publishForIEEE(ieee, "get", payload)
@@ -571,6 +572,49 @@ void componentPublish(DeviceWrapper device, String topic=null, String payload=nu
    DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
    String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
    brokerDev.publishForIEEE(ieee, topic, payload)
+} 
+
+void componentLock(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentLock(${device.displayName})"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [state: "LOCK"]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentUnlock(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentUnlock(${device.displayName})"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [state: "UNLOCK"]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentDeleteCode(DeviceWrapper device, Integer codePosition) {
+   if (enableDebug) log.debug "componentDeleteCode(${device.displayName}, ${codePosition})"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [pin_code: [user: codePosition, user_enabled: false, pin_code: null]]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentGetCodes(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentDeleteCode(${device.displayName}, ${codePosition})"
+   log.warn "getCodes() not implemented"
+}
+
+void componentSetCode(DeviceWrapper device, Integer codePosition, String pincode, String name=null) {
+   if (enableDebug) log.debug "componentSetCode(${device.displayName}, ${codePosition})"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [pin_code: [user: codePosition, user_enabled: true, pin_code: Integer.parseInt(pincode)]]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetCodeLength(DeviceWrapper device, Integer codeLength) {
+   if (enableDebug) log.debug "componentSetCodeLength(${device.displayName}, ${codeLength})"
+   List<Map> evts = [[name: "codeLength", value: codeLength]]
+   device.parse(evts)
 }
 
 String getDefinitionForDevice(DeviceWrapper device) {

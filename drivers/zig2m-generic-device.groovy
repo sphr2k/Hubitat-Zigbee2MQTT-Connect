@@ -13,12 +13,11 @@
  * =======================================================================================
  *
  *  Changelog:
- *  2021-11-24 - Initial release
+ *  2021-12-12 - Initial release
  */
 
 import groovy.transform.Field
 
-@Field static final List<String> parsableAttributes = ["battery", "motion", "temperature", "humidity"]
 @Field static final Integer debugAutoDisableMinutes = 30
 
 metadata {
