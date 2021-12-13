@@ -79,7 +79,7 @@ metadata {
 
 void installed() {
    log.debug "installed()"
-   initialize()
+   runIn(2, "initialize")
 }
 
 void updated() {
@@ -202,7 +202,7 @@ void parse(String message) {
          devices[device.idAsLong] = parseJson(parsedMsg.payload)
          //log.trace "devices = ${devices[device.idAsLong]}"
          break
-      case { it.startsWtih("${settings.topic}/bridge/groups") }:
+      case { it.startsWith("${settings.topic}/bridge/groups") }:
          groups[device.idAsLong] = parseJson(parsedMsg.payload)
       // General Bridge info, some of which we may care about but are ignoring for now...but helps filter remaining to just devices
       case { it.startsWith("${settings.topic}/bridge/") }:
