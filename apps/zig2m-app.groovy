@@ -260,6 +260,7 @@ List<String> getBestMatchDriver(List<Map> exposes) {
    }
    else if (exposes.find {it.name == "temperature" }) { // should break out temp-only sensor, but most seem to do both so not a huge priority...
       driverName = "Generic Component Temperature/Humidity Sensor"
+      namespace = customDriverNamespace
    }
    else if (exposes.features.find { flist -> flist.find { f -> f.name == "color_xy"  || f.name == "color_hs "} &&
                                            flist.find { f-> f.name == "color_temp" } } &&
