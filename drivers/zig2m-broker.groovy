@@ -79,7 +79,7 @@ metadata {
 
 void installed() {
    log.debug "installed()"
-   runIn(2, "initialize")
+   runIn(4, "initialize")
 }
 
 void updated() {
@@ -100,6 +100,9 @@ void updated() {
 
 void initialize(Boolean forceReconnect=true) {
    log.debug "initialize()"
+   // This doesn't work...maybe working from cache? trying to give time to "commit" settings after initial device
+   // install to avoid error. Is easily worked around by runIn() in installed() method, but could be cleaner...
+   if (hasInitalized[device.idAsLong]) pauseExecution(2000)
    if (enableDebug) {
       log.debug "Debug logging will be automatically disabled in ${debugAutoDisableMinutes} minutes"
       runIn(debugAutoDisableMinutes*60, "debugOff")
